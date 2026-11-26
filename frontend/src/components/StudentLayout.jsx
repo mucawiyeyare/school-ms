@@ -12,6 +12,7 @@ const icons = {
   attendance:<svg viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4M2 12a10 10 0 1 0 20 0A10 10 0 0 0 2 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/></svg>,
   fees:      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2Zm-1 14v-2H9v-2h2v-1H9V9h2V7h2v2h2v2h-3v1h3v2h-2v2h-2Z"/></svg>,
   history:   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6a7 7 0 1 1 2.05 4.95L6.62 18.4A9 9 0 1 0 13 3Z"/></svg>,
+  contact:   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4.2-8 5-8-5V6l8 5 8-5v2.2Z"/></svg>,
   chevron:   <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
 };
 
@@ -76,6 +77,7 @@ export default function StudentLayout() {
     { to: "/student/attendance", label: "Attendance",      icon: icons.attendance },
     { to: "/student/fees",       label: "Fee Payments",    icon: icons.fees       },
     { to: "/student/history",    label: "Academic History",icon: icons.history    },
+    { to: "/student/contact",    label: "Contact Us",      icon: icons.contact    },
   ];
 
   const isResultsActive = location.pathname.startsWith("/student/exams");
@@ -210,6 +212,12 @@ export default function StudentLayout() {
           </button>
           <span className="topbar-title">Student Portal</span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="topbar-btn" onClick={() => nav("/student/contact")}>
+              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
+                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4.2-8 5-8-5V6l8 5 8-5v2.2Z" />
+              </svg>
+              Contact Us
+            </button>
             {renderAvatar(32)}
             <span style={{ fontSize: ".8rem", fontWeight: 600, color: "var(--text)" }}>{user?.name}</span>
             <button className="topbar-btn danger" onClick={logout}>

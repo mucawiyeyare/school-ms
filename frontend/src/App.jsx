@@ -25,6 +25,7 @@ import MarksEntry from "./pages/MarksEntry";
 import Rankings from "./pages/Rankings";
 import ExamTypeSettings from "./pages/ExamTypeSettings";
 import TeacherAssignments from "./pages/TeacherAssignments";
+import ContactUs from "./pages/ContactUs";
 
 // Student sub-pages
 import StudentHome from "./pages/student/StudentHome";
@@ -48,6 +49,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/contact-us" element={<ContactUs />} />
 
         {/* ── Admin / Teacher / Parent routes ── */}
         <Route
@@ -75,6 +77,7 @@ export default function App() {
           <Route path="/users" element={<Users />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/profile" element={<MyProfile />} />
+          <Route path="/contact" element={<ContactUs />} />
           {/* Marks module */}
           <Route path="/marks/entry" element={<MarksEntry />} />
           <Route path="/marks/rankings" element={<Rankings />} />
@@ -96,6 +99,7 @@ export default function App() {
           <Route path="/student/attendance" element={<StudentAttendancePage />} />
           <Route path="/student/fees" element={<StudentFeesPage />} />
           <Route path="/student/history" element={<StudentHistoryPage />} />
+          <Route path="/student/contact" element={<ContactUs />} />
           {/* Legacy redirect */}
           <Route path="/my-profile" element={<Navigate to="/student/profile" replace />} />
         </Route>

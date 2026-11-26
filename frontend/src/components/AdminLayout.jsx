@@ -82,6 +82,9 @@ const navGroups = [
       { to: "/reports", label: "Reports", roles: ["Admin"], icon: (
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM9 17H7v-7h2v7Zm4 0h-2V7h2v10Zm4 0h-2v-4h2v4Z"/></svg>
       ) },
+      { to: "/contact", label: "Contact Us", roles: ["Admin", "Teacher", "Parent"], icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4.2-8 5-8-5V6l8 5 8-5v2.2Z"/></svg>
+      ) },
     ]
   }
 ];
@@ -215,6 +218,12 @@ export default function AdminLayout() {
           <span className="topbar-title">{getPageTitle()}</span>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="topbar-btn" onClick={() => nav("/contact")}>
+              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
+                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4.2-8 5-8-5V6l8 5 8-5v2.2Z" />
+              </svg>
+              Contact Us
+            </button>
             {renderAvatar(32)}
             <span style={{ fontSize: ".8rem", fontWeight: 600, color: "var(--text)" }}>{user?.name}</span>
             <button className="topbar-btn" onClick={() => nav("/profile")}>
