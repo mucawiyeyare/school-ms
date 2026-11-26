@@ -1,8 +1,26 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import { auth } from "../lib/auth";
 
-function Avatar({ name = "", size = 100 }) {
+function Avatar({ name = "", src = null, size = 100 }) {
+  if (src) {
+    return (
+      <img
+        src={src.startsWith("blob:") || src.startsWith("http") ? src : `http://localhost:5000${src}`}
+        alt="Avatar"
+        loading="lazy"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          boxShadow: "0 8px 24px rgba(37,99,235,0.35)",
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -85,14 +103,27 @@ const RoleBadgeColors = {
 
 export default function MyProfile() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+
+  // Profile Edit State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAvatarFile, setEditAvatarFile] = useState(null);
+  const [editAvatarPreview, setEditAvatarPreview] = useState(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileSuccess, setProfileSuccess] = useState("");
+  const fileInputRef = useRef(null);
+
+  // Password Setup State
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [fetchError, setFetchError] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
 
@@ -119,33 +150,108 @@ export default function MyProfile() {
       .finally(() => setLoading(false));
   }, []);
 
+  function handleEditClick() {
+    setEditName(user?.name || "");
+    setEditPhone(user?.phone || "");
+    setEditAvatarFile(null);
+    setEditAvatarPreview(null);
+    setProfileError("");
+    setProfileSuccess("");
+    setIsEditing(true);
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false);
+    if (editAvatarPreview) {
+      URL.revokeObjectURL(editAvatarPreview);
+    }
+  }
+
+  function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      if (!allowed.includes(file.type)) {
+        setProfileError("Only image files are allowed.");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setProfileError("Image size must be less than 5MB.");
+        return;
+      }
+      setProfileError("");
+      setEditAvatarFile(file);
+      setEditAvatarPreview(URL.createObjectURL(file));
+    }
+  }
+
+  async function handleProfileSubmit(e) {
+    e.preventDefault();
+    if (!editName.trim()) {
+      setProfileError("Name is required.");
+      return;
+    }
+
+    setProfileError("");
+    setProfileSuccess("");
+    setIsSavingProfile(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("name", editName.trim());
+      if (editPhone.trim()) formData.append("phone", editPhone.trim());
+      if (editAvatarFile) formData.append("avatar", editAvatarFile);
+
+      const res = await api.put("/api/auth/me", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setUser(res.data);
+      
+      // Update local storage so AdminLayout/StudentLayout sees the new name/avatar
+      const token = localStorage.getItem("sms_token");
+      if (token) {
+        auth.login(token, res.data); // Updates localStorage user info
+        // Dispatch custom event to trigger layout update, or layout picks it up on navigation
+        window.dispatchEvent(new Event("storage")); 
+      }
+      
+      setProfileSuccess("Profile updated successfully!");
+      setIsEditing(false);
+    } catch (err) {
+      setProfileError(err.response?.data?.message || "Failed to update profile.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
   async function handlePasswordChange(e) {
     e.preventDefault();
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError("Please fill all password fields.");
+      setPasswordError("Please fill all password fields.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match.");
+      setPasswordError("New passwords do not match.");
       return;
     }
     if (newPassword.length < 6) {
-      setError("New password must be at least 6 characters.");
+      setPasswordError("New password must be at least 6 characters.");
       return;
     }
-    setSaving(true);
-    setError("");
-    setSuccess("");
+    setSavingPassword(true);
+    setPasswordError("");
+    setPasswordSuccess("");
     try {
       await api.put("/api/auth/me/password", { currentPassword, newPassword });
-      setSuccess("Password updated successfully!");
+      setPasswordSuccess("Password updated successfully!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to update password.");
+      setPasswordError(err.response?.data?.message || "Failed to update password.");
     } finally {
-      setSaving(false);
+      setSavingPassword(false);
     }
   }
 
@@ -176,41 +282,123 @@ export default function MyProfile() {
 
   return (
     <div className="animate-fade" style={{ display: "grid", gap: 32, maxWidth: 720, margin: "0 auto", paddingBottom: 40 }}>
-      {/* Centered Profile Card */}
+      {/* Profile Card */}
       <div className="card" style={{ overflow: "hidden", textAlign: "center", paddingBottom: 32 }}>
         {/* Cover Photo */}
         <div style={{ height: 160, background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)", position: "relative" }}>
           <div style={{ position: "absolute", top: -50, right: -50, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.08)", filter: "blur(20px)" }} />
           <div style={{ position: "absolute", bottom: -50, left: 10, width: 150, height: 150, borderRadius: "50%", background: "rgba(255,255,255,0.05)", filter: "blur(15px)" }} />
+          {!isEditing && (
+            <button 
+              className="btn" 
+              style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", backdropFilter: "blur(4px)" }}
+              onClick={handleEditClick}
+            >
+              <svg viewBox="0 0 24 24" fill="none" style={{ width: 16, height: 16, marginRight: 6 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Edit Profile
+            </button>
+          )}
         </div>
         
         {/* Avatar overlapping cover */}
         <div style={{ marginTop: -55, display: "flex", justifyContent: "center", position: "relative", zIndex: 10 }}>
-          <div style={{ padding: 6, background: "var(--surface)", borderRadius: "50%", display: "inline-block" }}>
-            <Avatar name={user?.name} size={110} />
+          <div style={{ padding: 6, background: "var(--surface)", borderRadius: "50%", display: "inline-block", position: "relative" }}>
+            <Avatar 
+              name={isEditing ? editName : user?.name} 
+              src={isEditing ? editAvatarPreview || user?.avatar : user?.avatar} 
+              size={110} 
+            />
+            {isEditing && (
+              <div 
+                style={{
+                  position: "absolute", inset: 6, borderRadius: "50%", background: "rgba(0,0,0,0.5)",
+                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff",
+                  opacity: 0, transition: "opacity 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.opacity = 1}
+                onMouseOut={(e) => e.currentTarget.style.opacity = 0}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  style={{ display: "none" }} 
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleAvatarChange}
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        <h2 style={{ margin: "16px 0 8px", fontSize: "1.8rem", fontWeight: 800, color: "var(--text)", letterSpacing: "-0.02em" }}>
-          {user?.name || "—"}
-        </h2>
+        {profileError && (
+          <div style={{ padding: "0 24px", marginTop: 16 }}>
+             <div className="alert alert-error" style={{ padding: "12px", fontSize: "0.9rem" }}>{profileError}</div>
+          </div>
+        )}
         
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginBottom: 32 }}>
-          <span style={{ fontSize: "0.8rem", fontWeight: 700, padding: "5px 14px", borderRadius: 999, background: roleStyle.bg, color: roleStyle.color, border: `1px solid ${roleStyle.border}`, letterSpacing: "0.02em" }}>
-            {user?.role}
-          </span>
-          <span style={{ fontSize: "0.8rem", fontWeight: 700, padding: "5px 14px", borderRadius: 999, background: "var(--success-bg)", color: "var(--success)", border: "1px solid rgba(16,185,129,0.2)", letterSpacing: "0.02em" }}>
-            Active
-          </span>
-        </div>
+        {profileSuccess && (
+          <div style={{ padding: "0 24px", marginTop: 16 }}>
+             <div className="alert alert-success" style={{ padding: "12px", fontSize: "0.9rem" }}>{profileSuccess}</div>
+          </div>
+        )}
 
-        <div style={{ padding: "0 40px", textAlign: "left" }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16, paddingBottom: 8, borderBottom: "1px solid var(--border-light)" }}>Profile Details</h3>
-          
-          <InfoRow label="Email Address" value={user?.email} icon={<svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 2-8 5-8-5h16Zm0 12H4V9l8 5 8-5v9Z" /></svg>} />
-          <InfoRow label="Phone" value={user?.phone || "Not provided"} icon={<svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8Z" /></svg>} />
-          <InfoRow label="Account ID" value={user?._id} icon={<svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}><path d="M17 9V7a5 5 0 0 0-10 0v2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-5 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-6H9V7a3 3 0 1 1 6 0v2Z" /></svg>} />
-        </div>
+        {isEditing ? (
+          <form style={{ padding: "24px 40px", textAlign: "left" }} onSubmit={handleProfileSubmit}>
+            <div className="form-group">
+              <label className="form-label">Full Name</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={editName} 
+                onChange={(e) => setEditName(e.target.value)} 
+                required 
+              />
+            </div>
+            <div className="form-group" style={{ marginTop: 16 }}>
+              <label className="form-label">Phone Number</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={editPhone} 
+                onChange={(e) => setEditPhone(e.target.value)} 
+              />
+            </div>
+            
+            <div style={{ display: "flex", gap: 12, marginTop: 24, justifyContent: "flex-end" }}>
+              <button type="button" className="btn btn-outline" onClick={handleCancelEdit} disabled={isSavingProfile}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={isSavingProfile}>
+                {isSavingProfile ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <h2 style={{ margin: "16px 0 8px", fontSize: "1.8rem", fontWeight: 800, color: "var(--text)", letterSpacing: "-0.02em" }}>
+              {user?.name || "—"}
+            </h2>
+            
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginBottom: 32 }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 700, padding: "5px 14px", borderRadius: 999, background: roleStyle.bg, color: roleStyle.color, border: `1px solid ${roleStyle.border}`, letterSpacing: "0.02em" }}>
+                {user?.role}
+              </span>
+              <span style={{ fontSize: "0.8rem", fontWeight: 700, padding: "5px 14px", borderRadius: 999, background: "var(--success-bg)", color: "var(--success)", border: "1px solid rgba(16,185,129,0.2)", letterSpacing: "0.02em" }}>
+                Active
+              </span>
+            </div>
+
+            <div style={{ padding: "0 40px", textAlign: "left" }}>
+              <h3 style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16, paddingBottom: 8, borderBottom: "1px solid var(--border-light)" }}>Profile Details</h3>
+              
+              <InfoRow label="Email Address" value={user?.email} icon={<svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 2-8 5-8-5h16Zm0 12H4V9l8 5 8-5v9Z" /></svg>} />
+              <InfoRow label="Phone" value={user?.phone || "Not provided"} icon={<svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8Z" /></svg>} />
+              <InfoRow label="Account ID" value={user?._id} icon={<svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}><path d="M17 9V7a5 5 0 0 0-10 0v2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-5 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-6H9V7a3 3 0 1 1 6 0v2Z" /></svg>} />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Change Password Card */}
@@ -223,17 +411,17 @@ export default function MyProfile() {
         </div>
 
         <div className="card-body" style={{ padding: "32px" }}>
-          {error && (
+          {passwordError && (
             <div className="alert alert-error" style={{ marginBottom: 24, padding: "14px 20px" }}>
               <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18, flexShrink: 0 }}><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2Zm1 15h-2v-2h2v2Zm0-4h-2V7h2v6Z" /></svg>
-              {error}
+              {passwordError}
             </div>
           )}
 
-          {success && (
+          {passwordSuccess && (
             <div className="alert alert-success" style={{ marginBottom: 24, padding: "14px 20px" }}>
               <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18, flexShrink: 0 }}><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2Zm-2 14.5-4-4 1.41-1.41L10 13.67l6.59-6.58L18 8.5l-8 8Z" /></svg>
-              {success}
+              {passwordSuccess}
             </div>
           )}
 
@@ -294,10 +482,10 @@ export default function MyProfile() {
               <button
                 className="btn btn-primary"
                 type="submit"
-                disabled={saving}
+                disabled={savingPassword}
                 style={{ width: "100%", padding: "14px", fontSize: "1rem" }}
               >
-                {saving ? (
+                {savingPassword ? (
                   <>
                     <svg style={{ width: 20, animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 1 0 9 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
                     Updating Password...

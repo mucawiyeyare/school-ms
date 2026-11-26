@@ -865,8 +865,14 @@ export default function AdminStudentProfile() {
                           </td>
                           <td className="td-muted">{p.fromAcademicYearId?.name || "—"}</td>
                           <td className="td-muted">{p.toAcademicYearId?.name || "—"}</td>
-                          <td className="td-muted">{p.fromClassLevelId?.name || "—"}</td>
-                          <td className="td-muted">{p.toClassLevelId?.name || "—"}</td>
+                          <td className="td-muted">
+                            {p.fromClassLevelId?.name || "—"}
+                            {p.fromSectionId ? <span style={{ fontSize: "0.75rem", color: "var(--text-light)", display: "block" }}>Sec: {p.fromSectionId.name}</span> : null}
+                          </td>
+                          <td className="td-muted">
+                            {p.toClassLevelId?.name || "—"}
+                            {p.toSectionId ? <span style={{ fontSize: "0.75rem", color: "var(--text-light)", display: "block" }}>Sec: {p.toSectionId.name}</span> : null}
+                          </td>
                           <td className="td-muted">{p.reason || "—"}</td>
                           <td className="td-muted">{fmt(p.createdAt)}</td>
                         </tr>

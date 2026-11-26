@@ -1,6 +1,7 @@
 import Student from "../models/Student.js";
 import PromotionLog from "../models/PromotionLog.js";
 import AcademicYear from "../models/AcademicYear.js";
+import Enrollment from "../models/Enrollment.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 // PREVIEW (no transaction needed)
@@ -100,20 +101,32 @@ export const executePromotions = asyncHandler(async (req, res) => {
         continue;
       }
 
+      // Capture BEFORE mutation
       const fromClassId = current.classLevelId;
-      
+      const fromSectionId = current.sectionId;
+      const rollNumber = current.rollNumber;
+
       current.academicYearId = toAcademicYearId;
       current.classLevelId = toClassLevelId;
       current.sectionId = toSectionId;
       // keep status as active
       await current.save();
 
+      // Create new enrollment for the target year (upsert to avoid dup key)
+      await Enrollment.findOneAndUpdate(
+        { studentId, academicYearId: toAcademicYearId },
+        { classLevelId: toClassLevelId, sectionId: toSectionId, rollNo: rollNumber, status: "active" },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
       await PromotionLog.create({
         studentId,
         fromAcademicYearId,
         toAcademicYearId,
         fromClassLevelId: fromClassId,
+        fromSectionId,
         toClassLevelId,
+        toSectionId,
         action,
         reason,
         performedBy: req.user._id
@@ -125,7 +138,9 @@ export const executePromotions = asyncHandler(async (req, res) => {
     }
 
     if (action === "graduated" || action === "transferred") {
+      // Capture BEFORE mutation
       const fromClassId = current.classLevelId;
+      const fromSectionId = current.sectionId;
       current.status = action === "graduated" ? "graduated" : "transferred";
       await current.save();
 
@@ -134,7 +149,9 @@ export const executePromotions = asyncHandler(async (req, res) => {
         fromAcademicYearId,
         toAcademicYearId,
         fromClassLevelId: fromClassId,
+        fromSectionId,
         toClassLevelId: undefined,
+        toSectionId: undefined,
         action,
         reason,
         performedBy: req.user._id

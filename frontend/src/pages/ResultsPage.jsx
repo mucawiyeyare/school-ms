@@ -39,6 +39,10 @@ export default function ResultsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // Visibility
+  const [visibilities, setVisibilities] = useState({});
+  const [visLoading, setVisLoading] = useState(false);
+  const [visSaving, setVisSaving] = useState(null);
   // Report card
   const [rcStudentId, setRcStudentId] = useState("");
   const [rcTermId, setRcTermId] = useState("");
@@ -104,6 +108,7 @@ export default function ResultsPage() {
   async function handleClassChange(newClassId) {
     setForm(f => ({ ...f, classLevelId: newClassId, sectionId: "", subjectId: "" }));
     setClassSubjects([]);
+    setVisibilities({}); // Reset visibilities on class change
     if (newClassId) {
       setClassSubjectsLoading(true);
       try {
@@ -114,6 +119,46 @@ export default function ResultsPage() {
         }
       } catch { setClassSubjects([]); }
       finally { setClassSubjectsLoading(false); }
+    }
+  }
+
+  // Load visibility settings
+  async function loadVisibilitySettings() {
+    if (!form.academicYearId || !form.classLevelId) {
+      setError("Please select Academic Year and Class first");
+      return;
+    }
+    setVisLoading(true); setError(""); setSuccess("");
+    try {
+      const { data } = await api.get(`/api/marks/visibility?academicYearId=${form.academicYearId}&classLevelId=${form.classLevelId}`);
+      const vMap = {};
+      for (const v of data) {
+        vMap[v.examTypeCode] = v.isPublished;
+      }
+      setVisibilities(vMap);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Failed to load visibility settings");
+    } finally {
+      setVisLoading(false);
+    }
+  }
+
+  // Toggle visibility
+  async function toggleVisibility(examTypeCode, currentStatus) {
+    setVisSaving(examTypeCode); setError(""); setSuccess("");
+    try {
+      const { data } = await api.put("/api/marks/visibility", {
+        academicYearId: form.academicYearId,
+        classLevelId: form.classLevelId,
+        examTypeCode,
+        isPublished: !currentStatus
+      });
+      setVisibilities(prev => ({ ...prev, [examTypeCode]: data.isPublished }));
+      setSuccess(`Result visibility updated for ${examTypeCode}`);
+    } catch (e) {
+      setError(e?.response?.data?.message || "Failed to update visibility");
+    } finally {
+      setVisSaving(null);
     }
   }
 
@@ -184,6 +229,7 @@ export default function ResultsPage() {
         <div className="tabs">
           <button className={`tab ${tab === "enter" ? "active" : ""}`} onClick={() => setTab("enter")}>Enter Marks</button>
           <button className={`tab ${tab === "report" ? "active" : ""}`} onClick={() => setTab("report")}>Report Card</button>
+          {isAdmin && <button className={`tab ${tab === "publish" ? "active" : ""}`} onClick={() => { setTab("publish"); setVisibilities({}); }}>Publish Results</button>}
         </div>
         {isAdmin && <button className="btn btn-secondary btn-sm" onClick={() => setShowTermModal(true)}>+ Exam Term</button>}
       </div>
@@ -334,6 +380,80 @@ export default function ResultsPage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "publish" && isAdmin && (
+        <div className="card animate-fade">
+          <div className="card-header"><div className="card-title">Manage Result Visibility</div></div>
+          <div className="card-body">
+            <p style={{ fontSize: ".82rem", color: "var(--text-muted)", marginBottom: 20 }}>
+              Control which exam results are visible to students for the <strong>Active</strong> academic year. 
+              Results for archived years are always visible as historical data.
+            </p>
+            <div className="form-grid form-grid-3" style={{ gap: 12, marginBottom: 20 }}>
+              <div className="form-group"><label className="form-label">Academic Year</label>
+                <select className="form-select" value={form.academicYearId} onChange={e => setForm(f=>({...f,academicYearId:e.target.value}))}>
+                  {years.map(y=><option key={y._id} value={y._id}>{y.name} {y.status === "archived" ? "(Archived)" : "(Active)"}</option>)}
+                </select>
+              </div>
+              <div className="form-group"><label className="form-label">Class</label>
+                <select className="form-select" value={form.classLevelId} onChange={e => handleClassChange(e.target.value)}>
+                  {classes.map(c=><option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{ display: "flex", alignItems: "flex-end" }}>
+                <button className="btn btn-primary" onClick={loadVisibilitySettings} disabled={visLoading || !form.academicYearId || !form.classLevelId}>
+                  {visLoading ? "Loading..." : "Load Settings"}
+                </button>
+              </div>
+            </div>
+
+            {Object.keys(visibilities).length > 0 && !visLoading && (
+              <div style={{ background: "#f8fafc", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", overflow: "hidden" }}>
+                <table style={{ minWidth: 0 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: "40%" }}>Exam Type</th>
+                      <th>Visibility Status</th>
+                      <th style={{ textAlign: "right" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { code: "monthly1", label: "Monthly 1" },
+                      { code: "midterm",  label: "Mid-Term" },
+                      { code: "monthly2", label: "Monthly 2" },
+                      { code: "final",    label: "Final" }
+                    ].map(et => {
+                      const isPub = !!visibilities[et.code];
+                      return (
+                        <tr key={et.code}>
+                          <td style={{ fontWeight: 600 }}>{et.label}</td>
+                          <td>
+                            {isPub ? (
+                              <span className="badge badge-green">✓ Published</span>
+                            ) : (
+                              <span className="badge badge-gray">Hidden</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button 
+                              className={`btn btn-sm ${isPub ? "btn-warning" : "btn-primary"}`}
+                              onClick={() => toggleVisibility(et.code, isPub)}
+                              disabled={visSaving === et.code}
+                            >
+                              {visSaving === et.code ? "Saving..." : isPub ? "Hide Results" : "Publish Results"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

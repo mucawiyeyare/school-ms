@@ -1,5 +1,6 @@
 import AcademicYear from "../models/AcademicYear.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { handleAutomaticPromotion } from "../utils/promotion.util.js";
 
 export const createAcademicYear = asyncHandler(async (req, res) => {
   const { name, startDate, endDate } = req.body || {};
@@ -17,14 +18,35 @@ export const listAcademicYears = asyncHandler(async (req, res) => {
 
 export const activateAcademicYear = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const year = await AcademicYear.findById(id);
-  if (!year) return res.status(404).json({ message: "Academic year not found" });
+  const newYear = await AcademicYear.findById(id);
+  if (!newYear) return res.status(404).json({ message: "Academic year not found" });
 
+  if (newYear.status === "active") {
+    return res.status(400).json({ message: "Academic year is already active" });
+  }
+
+  // Find the currently active year (the one being closed/archived)
+  const oldActiveYear = await AcademicYear.findOne({ status: "active", _id: { $ne: id } });
+
+  // Update all other years to archived
   await AcademicYear.updateMany({ _id: { $ne: id } }, { $set: { status: "archived" } });
-  year.status = "active";
-  await year.save();
+  
+  // Set the new year to active
+  newYear.status = "active";
+  await newYear.save();
 
-  res.json({ message: "Academic year activated", activeYear: year });
+  // If there was an active year being closed, run the automatic promotion batch
+  if (oldActiveYear) {
+    // Run this asynchronously in the background so it doesn't block the request response
+    handleAutomaticPromotion(oldActiveYear._id, newYear._id, req.user._id).catch(err => {
+      console.error("[Auto Promotion Error] Background job failed:", err);
+    });
+  }
+
+  res.json({ 
+    message: oldActiveYear ? "Academic year activated and automatic promotion started." : "Academic year activated.", 
+    activeYear: newYear 
+  });
 });
 
 export const updateAcademicYear = asyncHandler(async (req, res) => {

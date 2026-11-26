@@ -6,7 +6,9 @@ const promotionLogSchema = new mongoose.Schema(
     fromAcademicYearId: { type: mongoose.Schema.Types.ObjectId, ref: "AcademicYear", required: true },
     toAcademicYearId: { type: mongoose.Schema.Types.ObjectId, ref: "AcademicYear", required: true },
     fromClassLevelId: { type: mongoose.Schema.Types.ObjectId, ref: "ClassLevel", required: true },
+    fromSectionId: { type: mongoose.Schema.Types.ObjectId, ref: "Section" },
     toClassLevelId: { type: mongoose.Schema.Types.ObjectId, ref: "ClassLevel" },
+    toSectionId: { type: mongoose.Schema.Types.ObjectId, ref: "Section" },
     action: { type: String, enum: ["promoted", "repeated", "transferred", "graduated"], required: true },
     reason: { type: String, trim: true },
     performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }

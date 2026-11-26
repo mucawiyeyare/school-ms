@@ -51,6 +51,54 @@ export const updateMyPassword = asyncHandler(async (req, res) => {
   res.json({ message: "Password updated successfully" });
 });
 
+export const updateMe = asyncHandler(async (req, res) => {
+  const { name, phone } = req.body || {};
+  const updateData = {};
+  
+  if (name) updateData.name = name;
+  if (phone !== undefined) updateData.phone = phone;
+
+  let photoPath = null;
+  if (req.file) {
+    photoPath = `/uploads/profiles/${req.file.filename}`;
+    updateData.avatar = photoPath;
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    updateData,
+    { new: true, runValidators: true }
+  ).select("-passwordHash");
+
+  if (!user) return res.status(404).json({ message: "User not found" });
+
+  // If the user is a Student, sync these changes to their Student model
+  if (user.role === "Student") {
+    const studentUpdate = {};
+    if (name) {
+      const parts = name.split(" ");
+      studentUpdate.firstName = parts[0] || "";
+      studentUpdate.lastName = parts.slice(1).join(" ") || "";
+    }
+    if (phone !== undefined) {
+      studentUpdate.phone = phone;
+    }
+    if (photoPath) {
+      studentUpdate.photo = photoPath;
+    }
+
+    if (Object.keys(studentUpdate).length > 0) {
+      await Student.findOneAndUpdate(
+        { studentUserId: user._id },
+        studentUpdate,
+        { runValidators: true }
+      );
+    }
+  }
+
+  res.json(user);
+});
+
 // Admin-only create user
 export const register = asyncHandler(async (req, res) => {
   const { name, email, password, role, phone } = req.body || {};

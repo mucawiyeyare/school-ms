@@ -11,6 +11,8 @@ import {
   getStudentsForMarks,
   getMarks,
   bulkSaveMarks,
+  getVisibility,
+  updateVisibility,
   getEditLogs,
   getSubjectTotals,
   generateRankings,
@@ -41,6 +43,10 @@ router.get("/students",             requireRole(["Admin", "Teacher"]), getStuden
 // Marks CRUD
 router.get("/",                     requireRole(["Admin", "Teacher"]), getMarks);
 router.post("/bulk-save",           requireRole(["Admin", "Teacher"]), bulkSaveMarks);
+
+// Result Visibility (Admin only)
+router.get("/visibility",           requireRole(["Admin"]), getVisibility);
+router.put("/visibility",           requireRole(["Admin"]), updateVisibility);
 
 // Edit logs
 router.get("/edit-logs/:marksRecordId", requireRole(["Admin"]), getEditLogs);

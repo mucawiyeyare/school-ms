@@ -7,6 +7,7 @@ import Enrollment from "../models/Enrollment.js";
 import Subject from "../models/Subject.js";
 import Student from "../models/Student.js";
 import AcademicYear from "../models/AcademicYear.js";
+import ResultVisibility from "../models/ResultVisibility.js";
 
 // ─── EXAM TYPES ────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,41 @@ export const updateExamType = async (req, res) => {
     );
     if (!et) return res.status(404).json({ message: "Exam type not found" });
     res.json(et);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+};
+
+// ─── RESULT VISIBILITY ─────────────────────────────────────────────────────────
+
+/** GET /api/marks/visibility?academicYearId=&classLevelId= */
+export const getVisibility = async (req, res) => {
+  try {
+    const { academicYearId, classLevelId } = req.query;
+    if (!academicYearId || !classLevelId) {
+      return res.status(400).json({ message: "academicYearId and classLevelId are required" });
+    }
+    const visibility = await ResultVisibility.find({ academicYearId, classLevelId });
+    res.json(visibility);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+};
+
+/** PUT /api/marks/visibility */
+export const updateVisibility = async (req, res) => {
+  try {
+    const { academicYearId, classLevelId, examTypeCode, isPublished } = req.body;
+    if (!academicYearId || !classLevelId || !examTypeCode || isPublished === undefined) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const visibility = await ResultVisibility.findOneAndUpdate(
+      { academicYearId, classLevelId, examTypeCode },
+      { isPublished, updatedBy: req.user._id },
+      { new: true, upsert: true }
+    );
+    res.json(visibility);
   } catch (e) {
     res.status(500).json({ message: e.message });
   }

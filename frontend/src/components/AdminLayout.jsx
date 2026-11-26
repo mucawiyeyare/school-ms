@@ -102,6 +102,28 @@ export default function AdminLayout() {
     return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   }
 
+  function renderAvatar(size = 32, extraClassName = "") {
+    if (user?.avatar) {
+      return (
+        <img 
+          src={`http://localhost:5000${user.avatar}`} 
+          alt="Avatar" 
+          className={extraClassName}
+          style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} 
+        />
+      );
+    }
+    const initials = getInitials(user?.name || "A");
+    return (
+      <div 
+        className={extraClassName}
+        style={{ width: size, height: size, borderRadius: "50%", background: "linear-gradient(135deg, #818cf8, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: `${size * 0.4}px`, fontWeight: 700, color: "#fff", flexShrink: 0 }}
+      >
+        {initials}
+      </div>
+    );
+  }
+
   function getPageTitle() {
     const p = location.pathname;
     // Special dynamic route labels
@@ -168,8 +190,8 @@ export default function AdminLayout() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-user-avatar">{getInitials(user?.name || "A")}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          {renderAvatar(40)}
+          <div style={{ flex: 1, minWidth: 0, marginLeft: 12 }}>
             <div className="sidebar-user-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {user?.name || "Admin"}
             </div>
@@ -193,9 +215,7 @@ export default function AdminLayout() {
           <span className="topbar-title">{getPageTitle()}</span>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #818cf8, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".72rem", fontWeight: 700, color: "#fff" }}>
-              {getInitials(user?.name || "A")}
-            </div>
+            {renderAvatar(32)}
             <span style={{ fontSize: ".8rem", fontWeight: 600, color: "var(--text)" }}>{user?.name}</span>
             <button className="topbar-btn" onClick={() => nav("/profile")}>
               <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
-import { uploadPhoto } from "../middleware/upload.js";
+import { uploadPhoto, uploadProfilePhoto } from "../middleware/upload.js";
 import {
   createStudent,
   listStudents,
@@ -19,7 +19,7 @@ const router = Router();
 // Student self-service (MUST be before /:id to prevent Express matching "me" as an id)
 router.get("/me", requireAuth, requireRole(["Student"]), getMyProfile);
 router.get("/me/results", requireAuth, requireRole(["Student"]), getMyResults);
-router.put("/me", requireAuth, requireRole(["Student"]), updateMyProfile);
+router.put("/me", requireAuth, requireRole(["Student"]), uploadProfilePhoto, updateMyProfile);
 
 // Admin / Teacher routes
 router.get("/",    requireAuth, listStudents);

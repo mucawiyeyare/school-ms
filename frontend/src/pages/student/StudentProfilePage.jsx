@@ -56,17 +56,39 @@ export default function StudentProfilePage() {
   const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
 
   function openEdit() {
-    setEditForm({ phone: student.phone || "", address: student.address || "", guardianName: student.guardianName || "", guardianPhone: student.guardianPhone || "" });
+    setEditForm({ phone: student.phone || "", address: student.address || "", guardianName: student.guardianName || "", guardianPhone: student.guardianPhone || "", avatarFile: null, avatarPreview: null });
     setEditError(""); setEditSuccess(""); setShowEdit(true);
+  }
+
+  function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditForm(p => ({ ...p, avatarFile: file, avatarPreview: URL.createObjectURL(file) }));
+    }
   }
 
   async function saveProfile(e) {
     e.preventDefault(); setEditError(""); setEditSuccess(""); setSaving(true);
     try {
-      await api.put("/api/students/me", editForm);
+      const formData = new FormData();
+      if (editForm.phone) formData.append("phone", editForm.phone);
+      if (editForm.address) formData.append("address", editForm.address);
+      if (editForm.guardianName) formData.append("guardianName", editForm.guardianName);
+      if (editForm.guardianPhone) formData.append("guardianPhone", editForm.guardianPhone);
+      if (editForm.avatarFile) formData.append("avatar", editForm.avatarFile);
+
+      await api.put("/api/students/me", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
       await reload();
+      // Dispatch event so Layout can refetch auth user if we really want to, but reloading is done in the layout context.
+      window.dispatchEvent(new Event("storage"));
       setEditSuccess("Profile updated!");
-      setTimeout(() => { setShowEdit(false); setEditSuccess(""); }, 1200);
+      setTimeout(() => { 
+        setShowEdit(false); 
+        setEditSuccess(""); 
+        if (editForm.avatarPreview) URL.revokeObjectURL(editForm.avatarPreview);
+      }, 1200);
     } catch (err) {
       setEditError(err?.response?.data?.message || "Failed to update");
     } finally { setSaving(false); }
@@ -161,6 +183,23 @@ export default function StudentProfilePage() {
             {editError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{editError}</div>}
             {editSuccess && <div className="alert alert-success" style={{ marginBottom: 12 }}>{editSuccess}</div>}
             <div className="alert alert-info" style={{ marginBottom: 14, fontSize: ".8rem" }}>Academic details can only be changed by an administrator.</div>
+            
+            <div style={{ display: "flex", gap: 20, marginBottom: 20, alignItems: "center" }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
+                 {editForm.avatarPreview ? (
+                    <img src={editForm.avatarPreview} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Avatar Preview" />
+                 ) : user?.avatar ? (
+                    <img src={`http://localhost:5000${user.avatar}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Current Avatar" />
+                 ) : (
+                    <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--primary)" }}>{initials}</span>
+                 )}
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label" style={{ marginBottom: 8 }}>Profile Photo</label>
+                <input type="file" className="form-input" style={{ padding: "8px 12px" }} accept="image/*" onChange={handleAvatarChange} />
+              </div>
+            </div>
+
             <div className="form-grid form-grid-2" style={{ gap: 14 }}>
               <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={editForm.phone || ""} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} placeholder="+1234567890" /></div>
               <div className="form-group"><label className="form-label">Guardian Name</label><input className="form-input" value={editForm.guardianName || ""} onChange={e => setEditForm(p => ({ ...p, guardianName: e.target.value }))} /></div>

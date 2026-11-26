@@ -43,7 +43,7 @@ export default function StudentAcademicHistory() {
                       <span style={{ fontSize: ".72rem", color: "var(--text-muted)" }}>{fmt(p.createdAt)}</span>
                     </div>
                     <div style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text)" }}>
-                      {p.fromClassLevelId?.name || "—"} → {p.toClassLevelId?.name || "—"}
+                      {p.fromClassLevelId?.name || "—"} {p.fromSectionId ? `(${p.fromSectionId.name})` : ""} → {p.toClassLevelId?.name || "—"} {p.toSectionId ? `(${p.toSectionId.name})` : ""}
                     </div>
                     <div style={{ fontSize: ".75rem", color: "var(--text-muted)", marginTop: 2 }}>
                       {p.fromAcademicYearId?.name} → {p.toAcademicYearId?.name}

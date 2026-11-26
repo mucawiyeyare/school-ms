@@ -44,7 +44,7 @@ export default function Login() {
             </div>
             
             <h2 style={{ fontSize: "2.2rem", fontWeight: 800, color: "#fff", lineHeight: 1.15, letterSpacing: "-0.03em" }}>
-              Welcome back,<br/>Admin
+              Welcome back
             </h2>
             <p style={{ marginTop: 16, fontSize: ".9rem", color: "rgba(255,255,255,0.75)", lineHeight: 1.6, maxWidth: "90%" }}>
               Sign in to manage your school's students, classes, enrollments, promotions, and more.

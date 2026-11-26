@@ -74,6 +74,17 @@ export const createStudent = asyncHandler(async (req, res) => {
       classLevelId: classLevelId || undefined,
       sectionId: sectionId || undefined,
     });
+
+    if (academicYearId && classLevelId && sectionId) {
+      await Enrollment.create({
+        studentId: student._id,
+        academicYearId,
+        classLevelId,
+        sectionId,
+        status: status || "active"
+      });
+    }
+
     res.status(201).json(student);
   } catch (err) {
     await User.findByIdAndDelete(user._id);
@@ -198,7 +209,9 @@ export const getMyProfile = asyncHandler(async (req, res) => {
       .populate("fromAcademicYearId", "name")
       .populate("toAcademicYearId", "name")
       .populate("fromClassLevelId", "name")
+      .populate("fromSectionId", "name")
       .populate("toClassLevelId", "name")
+      .populate("toSectionId", "name")
       .sort({ createdAt: -1 })
   ]);
 
@@ -251,13 +264,26 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
   if (address !== undefined)       student.address = address;
   if (guardianName !== undefined)  student.guardianName = guardianName;
   if (guardianPhone !== undefined) student.guardianPhone = guardianPhone;
+
+  let photoPath = null;
+  if (req.file) {
+    photoPath = `/uploads/profiles/${req.file.filename}`;
+    student.photo = photoPath;
+  }
+
   await student.save();
+
+  const user = await User.findById(req.user._id);
+
+  if (photoPath) {
+    user.avatar = photoPath;
+    await user.save();
+  }
 
   if (newPassword) {
     if (!currentPassword) {
       return res.status(400).json({ message: "Current password is required to change password" });
     }
-    const user = await User.findById(req.user._id);
     const valid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!valid) return res.status(400).json({ message: "Current password is incorrect" });
     user.passwordHash = await bcrypt.hash(newPassword, 10);
@@ -436,7 +462,9 @@ export const getStudentById = asyncHandler(async (req, res) => {
       .populate("fromAcademicYearId", "name")
       .populate("toAcademicYearId", "name")
       .populate("fromClassLevelId", "name")
+      .populate("fromSectionId", "name")
       .populate("toClassLevelId", "name")
+      .populate("toSectionId", "name")
       .sort({ createdAt: -1 })
   ]);
 
@@ -482,6 +510,15 @@ export const updateStudent = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(student.studentUserId, {
       name: `${student.firstName} ${student.lastName}`.trim()
     });
+  }
+
+  // Keep Enrollment in sync with the student's current placement
+  if (student.academicYearId && student.classLevelId && student.sectionId) {
+    await Enrollment.findOneAndUpdate(
+      { studentId: student._id, academicYearId: student.academicYearId },
+      { classLevelId: student.classLevelId, sectionId: student.sectionId, status: student.status === "active" ? "active" : student.status },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
   }
 
   const updated = await Student.findById(student._id)
